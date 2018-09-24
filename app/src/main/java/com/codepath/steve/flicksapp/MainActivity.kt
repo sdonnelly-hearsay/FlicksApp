@@ -22,6 +22,7 @@ class MainActivity : YouTubeBaseActivity(), YoutubeClickedListener {
     private val movieAdapter by lazy { MovieAdapter(this@MainActivity, ArrayList()) }
 
     private val disposables: CompositeDisposable by lazy { CompositeDisposable() }
+    private var youtubePlayer: YouTubePlayer? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -31,6 +32,24 @@ class MainActivity : YouTubeBaseActivity(), YoutubeClickedListener {
         rvMovieList.adapter = movieAdapter
 
         movieAdapter.youtubeClickedListener = this
+
+        youtube.initialize(YOUTUBE_API_KEY, object : YouTubePlayer.OnInitializedListener {
+            override fun onInitializationSuccess(
+                provider: YouTubePlayer.Provider?,
+                player: YouTubePlayer?,
+                b: Boolean
+            ) {
+                youtubePlayer = player
+            }
+
+            override fun onInitializationFailure(
+                provider: YouTubePlayer.Provider?,
+                result: YouTubeInitializationResult?
+            ) {
+                Log.d(javaClass.name, result.toString())
+            }
+
+        })
     }
 
     override fun onResume() {
@@ -52,26 +71,12 @@ class MainActivity : YouTubeBaseActivity(), YoutubeClickedListener {
             .observeOn(AndroidSchedulers.mainThread())
             .subscribe({
                 val playableVideo: Video? = getPlayableVideo(it.results)
+                if (playableVideo != null)
+                    youtubePlayer?.loadVideo(playableVideo.key)
                 youtube.visibility = View.VISIBLE
                 rvMovieList.visibility = View.GONE
 
-                youtube.initialize(YOUTUBE_API_KEY, object : YouTubePlayer.OnInitializedListener {
-                    override fun onInitializationSuccess(
-                        provider: YouTubePlayer.Provider?,
-                        player: YouTubePlayer?,
-                        b: Boolean
-                    ) {
-                        player?.loadVideo(playableVideo?.key)
-                    }
 
-                    override fun onInitializationFailure(
-                        provider: YouTubePlayer.Provider?,
-                        result: YouTubeInitializationResult?
-                    ) {
-                        Log.d(javaClass.name, result.toString())
-                    }
-
-                })
             }, { e ->
                 e.printStackTrace()
             })
@@ -80,6 +85,7 @@ class MainActivity : YouTubeBaseActivity(), YoutubeClickedListener {
     override fun onBackPressed() {
         if (youtube.visibility == View.VISIBLE) {
             youtube.visibility = View.GONE
+            youtubePlayer?.pause()
             rvMovieList.visibility = View.VISIBLE
         } else {
             super.onBackPressed()
